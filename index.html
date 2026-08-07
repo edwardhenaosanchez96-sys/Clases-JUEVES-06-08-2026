@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockPulse - WMS Empresarial</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0284c7',
+              600: '#0284c7',
+              700: '#0369a1',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Animaciones para Modales */
+    @keyframes modalZoomIn {
+      from {
+        opacity: 0;
+        transform: scale(0.92);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(8px);
+    }
+
+    .modal-content {
+      animation: modalZoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex flex-col transition-colors duration-200">
+
+  <!-- ================= NOTIFICACIONES TOAST ================= -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ================= INTERFAZ PRINCIPAL (APP) ================= -->
+  <div id="app" class="hidden min-h-screen flex flex-col">
+    <!-- Navbar Top -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 transition-colors">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        
+        <!-- Logo & Titulo -->
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-brand-500 text-white rounded-xl shadow-md shadow-brand-500/20">
+            <i data-lucide="boxes" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-900 dark:text-white" id="appTitle">StockPulse</h1>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Sistema de Gestión WMS</span>
+          </div>
+        </div>
+
+        <!-- Acciones Usuario & Tema -->
+        <div class="flex items-center gap-3">
+          <button id="themeToggleBtn" onclick="toggleDarkMode()" class="p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+            <i data-lucide="sun" id="themeIconSun" class="w-5 h-5 hidden"></i>
+            <i data-lucide="moon" id="themeIconMoon" class="w-5 h-5"></i>
+          </button>
+
+          <div class="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+          <div class="flex items-center gap-3">
+            <div class="text-right hidden sm:block">
+              <div id="navUserName" class="text-sm font-semibold text-slate-800 dark:text-slate-100">Usuario</div>
+              <div id="navUserRole" class="text-xs text-brand-600 dark:text-brand-400 font-medium uppercase tracking-wider">Rol</div>
+            </div>
+            <button onclick="logout()" title="Cerrar Sesión" class="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+              <i data-lucide="log-out" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Layout Principal -->
+    <div class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row gap-6">
+      
+      <!-- Navegación Sidebar -->
+      <aside class="w-full md:w-64 flex flex-col gap-1 shrink-0">
+        <nav class="bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-1">
+          <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard & KPIs
+          </button>
+
+          <button onclick="switchTab('products')" id="nav-products" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50">
+            <i data-lucide="cpu" class="w-4 h-4"></i> Productos Tech
+          </button>
+
+          <button onclick="switchTab('movements')" id="nav-movements" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50">
+            <i data-lucide="arrow-up-right-down-left" class="w-4 h-4"></i> Entradas / Salidas
+          </button>
+
+          <button onclick="switchTab('users')" id="nav-users" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50">
+            <i data-lucide="users" class="w-4 h-4"></i> Gestión Usuarios
+          </button>
+
+          <button onclick="switchTab('system')" id="nav-system" class="nav-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50">
+            <i data-lucide="shield-check" class="w-4 h-4"></i> SuperAdmin & Config
+          </button>
+        </nav>
+      </aside>
+
+      <!-- Contenido Principal -->
+      <main class="flex-1 min-w-0">
+        
+        <!-- VISTA: DASHBOARD -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-bold tracking-tight">Panel de Control General</h2>
+            <span class="text-xs text-slate-500">Métricas en tiempo real</span>
+          </div>
+
+          <!-- Cards KPI -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Productos</span>
+                <div class="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"><i data-lucide="package" class="w-4 h-4"></i></div>
+              </div>
+              <div class="text-2xl font-bold" id="kpiTotalProducts">0</div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Valor Inventario</span>
+                <div class="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg"><i data-lucide="dollar-sign" class="w-4 h-4"></i></div>
+              </div>
+              <div class="text-2xl font-bold" id="kpiTotalValue">$0</div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stock Crítico (&lt;5)</span>
+                <div class="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg"><i data-lucide="alert-triangle" class="w-4 h-4"></i></div>
+              </div>
+              <div class="text-2xl font-bold text-amber-600 dark:text-amber-400" id="kpiLowStock">0</div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Movimientos</span>
+                <div class="p-2 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg"><i data-lucide="activity" class="w-4 h-4"></i></div>
+              </div>
+              <div class="text-2xl font-bold" id="kpiTotalMovements">0</div>
+            </div>
+          </div>
+
+          <!-- Graficas -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <h3 class="text-sm font-semibold mb-4 text-slate-600 dark:text-slate-300">Stock por Categoría</h3>
+              <div class="relative h-64"><canvas id="chartCategory"></canvas></div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <h3 class="text-sm font-semibold mb-4 text-slate-600 dark:text-slate-300">Histórico de Operaciones</h3>
+              <div class="relative h-64"><canvas id="chartMovements"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VISTA: PRODUCTOS -->
+        <section id="tab-products" class="tab-content space-y-4 hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold tracking-tight">Inventario de Tecnología</h2>
+              <p class="text-xs text-slate-500">Gestión general de hardware, componentes y equipos</p>
+            </div>
+            <button id="btnNewProduct" onclick="openProductModal()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium text-sm shadow-md transition">
+              <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Producto
+            </button>
+          </div>
+
+          <!-- Filtros & Tabla -->
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-3">
+              <div class="relative flex-1">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+                <input type="text" id="productSearch" oninput="renderProducts()" placeholder="Buscar por código, nombre o marca..." class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500">
+              </div>
+              <select id="categoryFilter" onchange="renderProducts()" class="px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
+                <option value="">Todas las Categorías</option>
+              </select>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-xs font-semibold">
+                  <tr>
+                    <th class="px-4 py-3">Código / Producto</th>
+                    <th class="px-4 py-3">Categoría</th>
+                    <th class="px-4 py-3">Precio</th>
+                    <th class="px-4 py-3">Stock</th>
+                    <th class="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="productsTableBody" class="divide-y divide-slate-200 dark:divide-slate-700/60"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VISTA: MOVIMIENTOS -->
+        <section id="tab-movements" class="tab-content space-y-4 hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold tracking-tight">Registro de Entradas y Salidas</h2>
+              <p class="text-xs text-slate-500">Kardex y trazabilidad operativa de almacén</p>
+            </div>
+            <button onclick="openMovementModal()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium text-sm shadow-md transition">
+              <i data-lucide="arrow-left-right" class="w-4 h-4"></i> Registrar Movimiento
+            </button>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-xs font-semibold">
+                  <tr>
+                    <th class="px-4 py-3">Fecha</th>
+                    <th class="px-4 py-3">Tipo</th>
+                    <th class="px-4 py-3">Producto</th>
+                    <th class="px-4 py-3">Cantidad</th>
+                    <th class="px-4 py-3">Usuario</th>
+                    <th class="px-4 py-3">Notas</th>
+                  </tr>
+                </thead>
+                <tbody id="movementsTableBody" class="divide-y divide-slate-200 dark:divide-slate-700/60"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VISTA: USUARIOS (SUPERADMIN & ADMIN) -->
+        <section id="tab-users" class="tab-content space-y-4 hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold tracking-tight">Gestión de Cuentas y Accesos</h2>
+              <p class="text-xs text-slate-500">Administra el personal del sistema WMS</p>
+            </div>
+            <button id="btnNewUser" onclick="openUserModal()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium text-sm shadow-md transition">
+              <i data-lucide="user-plus" class="w-4 h-4"></i> Crear Usuario
+            </button>
+          </div>
+
+          <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-500 uppercase text-xs font-semibold">
+                  <tr>
+                    <th class="px-4 py-3">Usuario / Nombre</th>
+                    <th class="px-4 py-3">Email</th>
+                    <th class="px-4 py-3">Rol</th>
+                    <th class="px-4 py-3">Estado</th>
+                    <th class="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody" class="divide-y divide-slate-200 dark:divide-slate-700/60"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VISTA: SUPERADMIN CONFIG & BACKUPS -->
+        <section id="tab-system" class="tab-content space-y-6 hidden">
+          <div>
+            <h2 class="text-xl font-bold tracking-tight">Panel de Control Avanzado (SuperAdmin)</h2>
+            <p class="text-xs text-slate-500">Ajustes globales, copias de seguridad local y auditoría</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Backups JSON -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-brand-50 dark:bg-brand-900/30 text-brand-600 rounded-xl"><i data-lucide="database" class="w-5 h-5"></i></div>
+                <div>
+                  <h3 class="font-bold text-sm">Respaldo Local (JSON)</h3>
+                  <p class="text-xs text-slate-500">Exporta o restaura toda la BD local del WMS</p>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-2 pt-2">
+                <button onclick="exportBackupJSON()" class="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-medium rounded-xl transition">
+                  <i data-lucide="download" class="w-4 h-4"></i> Exportar Copia JSON
+                </button>
+                <label class="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-xl cursor-pointer transition">
+                  <i data-lucide="upload" class="w-4 h-4"></i> Importar y Restaurar Backup
+                  <input type="file" id="importJsonInput" accept=".json" onchange="importBackupJSON(event)" class="hidden">
+                </label>
+              </div>
+            </div>
+
+            <!-- Configuración Empresa -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-brand-50 dark:bg-brand-900/30 text-brand-600 rounded-xl"><i data-lucide="sliders" class="w-5 h-5"></i></div>
+                <div>
+                  <h3 class="font-bold text-sm">Ajustes del Sistema</h3>
+                  <p class="text-xs text-slate-500">Moneda e información del negocio</p>
+                </div>
+              </div>
+
+              <div class="space-y-3 pt-2">
+                <div>
+                  <label class="text-xs font-semibold text-slate-500">Nombre de la Empresa / Tienda</label>
+                  <input type="text" id="sysStoreName" class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-slate-500">Símbolo de Moneda</label>
+                  <input type="text" id="sysCurrency" class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+                </div>
+                <button onclick="saveSystemSettings()" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-medium transition">Guardar Configuración</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= VISTA LOGIN ================= -->
+  <div id="loginView" class="min-h-screen flex items-center justify-center p-4 bg-slate-100 dark:bg-slate-950">
+    <div class="w-full max-w-md bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-6 modal-content">
+      <div class="text-center space-y-2">
+        <div class="inline-flex p-3 bg-brand-500 text-white rounded-2xl shadow-lg shadow-brand-500/30 mb-2">
+          <i data-lucide="boxes" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-extrabold tracking-tight">StockPulse WMS</h2>
+        <p class="text-xs text-slate-500">Ingresa tus credenciales para acceder</p>
+      </div>
+
+      <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Correo Electrónico</label>
+          <input type="email" id="loginEmail" required class="w-full mt-1 px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-600 dark:text-slate-400">Contraseña</label>
+          <input type="password" id="loginPassword" required class="w-full mt-1 px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-sm shadow-md transition">
+          Iniciar Sesión
+        </button>
+      </form>
+
+      <!-- Accesos Rápidos Demo -->
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+        <p class="text-xs text-center font-semibold text-slate-400 uppercase tracking-wider">Cuentas Demo Rápidas</p>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="fillDemo('superadmin@stockpulse.com')" class="px-2 py-1.5 text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 font-semibold rounded-lg hover:opacity-80">SuperAdmin</button>
+          <button onclick="fillDemo('admin@stockpulse.com')" class="px-2 py-1.5 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 font-semibold rounded-lg hover:opacity-80">Admin</button>
+          <button onclick="fillDemo('empleado@stockpulse.com')" class="px-2 py-1.5 text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 font-semibold rounded-lg hover:opacity-80">Empleado</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODALES FLOTANTES CON ZOOM & BLUR ================= -->
+  
+  <!-- MODAL: PRODUCTO -->
+  <div id="modalProduct" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 modal-content space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg" id="modalProductTitle">Nuevo Producto Tecnológico</h3>
+        <button onclick="closeModal('modalProduct')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="formProduct" onsubmit="saveProduct(event)" class="space-y-3">
+        <input type="hidden" id="prodId">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-500">SKU / Código</label>
+            <input type="text" id="prodCode" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Categoría</label>
+            <input type="text" id="prodCategory" required placeholder="Laptops, GPU, etc." class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Nombre del Producto</label>
+          <input type="text" id="prodName" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Precio</label>
+            <input type="number" step="0.01" id="prodPrice" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Stock Inicial</label>
+            <input type="number" id="prodStock" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modalProduct')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm rounded-xl">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MOVIMIENTO -->
+  <div id="modalMovement" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 modal-content space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">Registrar Movimiento de Inventario</h3>
+        <button onclick="closeModal('modalMovement')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form onsubmit="saveMovement(event)" class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Tipo de Movimiento</label>
+          <select id="movType" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+            <option value="IN">Entrada (Compra / Devolución)</option>
+            <option value="OUT">Salida (Venta / Pérdida)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Producto</label>
+          <select id="movProduct" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"></select>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Cantidad</label>
+          <input type="number" id="movQty" min="1" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Observaciones / Notas</label>
+          <input type="text" id="movNotes" placeholder="Ej. Factura #00123" class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modalMovement')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm rounded-xl">Registrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: USUARIOS -->
+  <div id="modalUser" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 modal-content space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg" id="modalUserTitle">Gestión de Cuentas</h3>
+        <button onclick="closeModal('modalUser')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form id="formUser" onsubmit="saveUser(event)" class="space-y-3">
+        <input type="hidden" id="userId">
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Nombre Completo</label>
+          <input type="text" id="userName" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Correo Electrónico</label>
+          <input type="email" id="userEmail" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500">Contraseña</label>
+          <input type="password" id="userPass" class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl" placeholder="Dejar en blanco para no cambiar">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Rol de Sistema</label>
+            <select id="userRole" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+              <option value="empleado">Empleado</option>
+              <option value="admin">Administrador</option>
+              <option value="superadmin">SuperAdmin</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500">Estado</label>
+            <select id="userStatus" required class="w-full mt-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+              <option value="active">Activo</option>
+              <option value="suspended">Suspendido</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modalUser')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm rounded-xl">Guardar Usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ================= LÓGICA JAVASCRIPT ================= -->
+  <script>
+    // --- ESTADO INICIAL Y SEMILLA (LOCAL STORAGE) ---
+    const DB_KEYS = {
+      USERS: 'sp_users',
+      PRODUCTS: 'sp_products',
+      MOVEMENTS: 'sp_movements',
+      SETTINGS: 'sp_settings',
+      SESSION: 'sp_session'
+    };
+
+    const initialSeed = {
+      users: [
+        { id: '1', name: 'Super Administrador', email: 'superadmin@stockpulse.com', pass: '123456', role: 'superadmin', status: 'active' },
+        { id: '2', name: 'Admin Inventario', email: 'admin@stockpulse.com', pass: '123456', role: 'admin', status: 'active' },
+        { id: '3', name: 'Empleado Almacén', email: 'empleado@stockpulse.com', pass: '123456', role: 'empleado', status: 'active' }
+      ],
+      products: [
+        { id: '101', code: 'LAP-001', name: 'Laptop ASUS ROG Strix DDR5 16GB', category: 'Portátiles', price: 1250.00, stock: 12 },
+        { id: '102', code: 'GPU-3080', name: 'Nvidia RTX 3080 10GB GDDR6X', category: 'Componentes', price: 750.00, stock: 3 },
+        { id: '103', code: 'MON-274K', name: 'Monitor LG UltraGear 27" 144Hz 4K', category: 'Monitores', price: 420.00, stock: 8 },
+        { id: '104', code: 'MOU-LOG1', name: 'Mouse Logitech G Pro X Superlight', category: 'Periféricos', price: 110.00, stock: 25 }
+      ],
+      movements: [
+        { id: 'm1', date: new Date().toISOString(), type: 'IN', productId: '101', qty: 12, userName: 'Super Administrador', notes: 'Carga Inicial Stock' },
+        { id: 'm2', date: new Date().toISOString(), type: 'IN', productId: '102', qty: 3, userName: 'Admin Inventario', notes: 'Compra Proveedor' }
+      ],
+      settings: {
+        storeName: 'StockPulse Tech Warehouse',
+        currency: '$'
+      }
+    };
+
+    // Global State
+    let currentUser = null;
+    let categoryChartInstance = null;
+    let movementChartInstance = null;
+
+    // --- INICIALIZACIÓN DE LA APP ---
+    window.addEventListener('DOMContentLoaded', () => {
+      initDatabase();
+      checkSession();
+      lucide.createIcons();
+    });
+
+    function initDatabase() {
+      if (!localStorage.getItem(DB_KEYS.USERS)) localStorage.setItem(DB_KEYS.USERS, JSON.stringify(initialSeed.users));
+      if (!localStorage.getItem(DB_KEYS.PRODUCTS)) localStorage.setItem(DB_KEYS.PRODUCTS, JSON.stringify(initialSeed.products));
+      if (!localStorage.getItem(DB_KEYS.MOVEMENTS)) localStorage.setItem(DB_KEYS.MOVEMENTS, JSON.stringify(initialSeed.movements));
+      if (!localStorage.getItem(DB_KEYS.SETTINGS)) localStorage.setItem(DB_KEYS.SETTINGS, JSON.stringify(initialSeed.settings));
+    }
+
+    function getData(key) { return JSON.parse(localStorage.getItem(key)) || []; }
+    function setData(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+    // --- MANEJO DE SESIÓN Y AUTENTICACIÓN ---
+    function checkSession() {
+      const savedUser = localStorage.getItem(DB_KEYS.SESSION);
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        showApp();
+      } else {
+        showLogin();
+      }
+    }
+
+    function fillDemo(email) {
+      document.getElementById('loginEmail').value = email;
+      document.getElementById('loginPassword').value = '123456';
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const pass = document.getElementById('loginPassword').value;
+
+      const users = getData(DB_KEYS.USERS);
+      const user = users.find(u => u.email === email && u.pass === pass);
+
+      if (!user) {
+        showToast('Credenciales incorrectas', 'error');
+        return;
+      }
+
+      if (user.status === 'suspended') {
+        showToast('Tu cuenta está suspendida por el SuperAdmin', 'error');
+        return;
+      }
+
+      currentUser = user;
+      localStorage.setItem(DB_KEYS.SESSION, JSON.stringify(user));
+      showToast(`¡Bienvenido de nuevo, ${user.name}!`, 'success');
+      showApp();
+    }
+
+    function logout() {
+      localStorage.removeItem(DB_KEYS.SESSION);
+      currentUser = null;
+      showLogin();
+    }
+
+    function showLogin() {
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('loginView').classList.remove('hidden');
+    }
+
+    function showApp() {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+
+      // Set Header User Info
+      document.getElementById('navUserName').textContent = currentUser.name;
+      document.getElementById('navUserRole').textContent = currentUser.role;
+
+      // Aplicar Restricciones de UI según Rol
+      applyPermissions();
+
+      // Cargar vistas iniciales
+      switchTab('dashboard');
+      loadSettingsUI();
+    }
+
+    // --- CONTROLES DE PERMISOS SEGÚN EL ROL ---
+    function applyPermissions() {
+      const role = currentUser.role;
+
+      // Ocultar / Mostrar Pestañas
+      document.getElementById('nav-users').style.display = (role === 'superadmin' || role === 'admin') ? 'flex' : 'none';
+      document.getElementById('nav-system').style.display = (role === 'superadmin') ? 'flex' : 'none';
+
+      // Restricciones en Productos
+      const btnNewProduct = document.getElementById('btnNewProduct');
+      if (btnNewProduct) btnNewProduct.style.display = (role === 'superadmin' || role === 'admin') ? 'flex' : 'none';
+
+      // Restricciones en Usuarios
+      const btnNewUser = document.getElementById('btnNewUser');
+      if (btnNewUser) btnNewUser.style.display = (role === 'superadmin') ? 'flex' : 'none';
+    }
+
+    // --- NAVEGACIÓN ENTRE SECCIONES (TABS) ---
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('bg-brand-50', 'text-brand-600', 'dark:bg-slate-700', 'dark:text-white', 'font-semibold'));
+
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      const activeNav = document.getElementById(`nav-${tabId}`);
+      if (activeNav) activeNav.classList.add('bg-brand-50', 'text-brand-600', 'dark:bg-slate-700', 'dark:text-white', 'font-semibold');
+
+      // Trigger re-renders
+      if (tabId === 'dashboard') renderDashboard();
+      if (tabId === 'products') renderProducts();
+      if (tabId === 'movements') renderMovements();
+      if (tabId === 'users') renderUsers();
+      
+      lucide.createIcons();
+    }
+
+    // --- DASHBOARD & GRÁFICAS ---
+    function renderDashboard() {
+      const products = getData(DB_KEYS.PRODUCTS);
+      const movements = getData(DB_KEYS.MOVEMENTS);
+      const settings = getData(DB_KEYS.SETTINGS);
+
+      // Total Productos
+      document.getElementById('kpiTotalProducts').textContent = products.length;
+
+      // Valor Inventario
+      const totalVal = products.reduce((acc, p) => acc + (p.price * p.stock), 0);
+      document.getElementById('kpiTotalValue').textContent = `${settings.currency || '$'}${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+      // Stock Crítico (<5)
+      const lowStockCount = products.filter(p => p.stock < 5).length;
+      document.getElementById('kpiLowStock').textContent = lowStockCount;
+
+      // Movimientos
+      document.getElementById('kpiTotalMovements').textContent = movements.length;
+
+      // Render Charts
+      renderCharts(products, movements);
+    }
+
+    function renderCharts(products, movements) {
+      // 1. Chart Categorias
+      const categoriesMap = {};
+      products.forEach(p => {
+        categoriesMap[p.category] = (categoriesMap[p.category] || 0) + p.stock;
+      });
+
+      const catCtx = document.getElementById('chartCategory').getContext('2d');
+      if (categoryChartInstance) categoryChartInstance.destroy();
+      categoryChartInstance = new Chart(catCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(categoriesMap),
+          datasets: [{
+            data: Object.values(categoriesMap),
+            backgroundColor: ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      // 2. Chart Movimientos (Entradas vs Salidas)
+      const inCount = movements.filter(m => m.type === 'IN').length;
+      const outCount = movements.filter(m => m.type === 'OUT').length;
+
+      const movCtx = document.getElementById('chartMovements').getContext('2d');
+      if (movementChartInstance) movementChartInstance.destroy();
+      movementChartInstance = new Chart(movCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Entradas (Compras)', 'Salidas (Ventas/Pérdidas)'],
+          datasets: [{
+            label: 'Operaciones',
+            data: [inCount, outCount],
+            backgroundColor: ['#10b981', '#ef4444']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    // --- CRUD PRODUCTOS ---
+    function renderProducts() {
+      const products = getData(DB_KEYS.PRODUCTS);
+      const settings = getData(DB_KEYS.SETTINGS);
+      const query = document.getElementById('productSearch').value.toLowerCase();
+      const catFilter = document.getElementById('categoryFilter').value;
+
+      // Llenar select de categorías únicas
+      const catSelect = document.getElementById('categoryFilter');
+      const categories = [...new Set(products.map(p => p.category))];
+      catSelect.innerHTML = '<option value="">Todas las Categorías</option>' + 
+        categories.map(c => `<option value="${c}" ${catFilter === c ? 'selected' : ''}>${c}</option>`).join('');
+
+      const tbody = document.getElementById('productsTableBody');
+      tbody.innerHTML = '';
+
+      const filtered = products.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(query) || p.code.toLowerCase().includes(query);
+        const matchesCat = catFilter ? p.category === catFilter : true;
+        return matchesSearch && matchesCat;
+      });
+
+      filtered.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/30 transition';
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-medium">
+            <div class="font-bold text-slate-900 dark:text-slate-100">${p.name}</div>
+            <div class="text-xs text-slate-400">SKU: ${p.code}</div>
+          </td>
+          <td class="px-4 py-3"><span class="px-2.5 py-1 text-xs rounded-lg font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${p.category}</span></td>
+          <td class="px-4 py-3 font-semibold">${settings.currency || '$'}${parseFloat(p.price).toFixed(2)}</td>
+          <td class="px-4 py-3">
+            <span class="px-2.5 py-1 text-xs rounded-lg font-bold ${p.stock < 5 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}">
+              ${p.stock} un.
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right space-x-2">
+            ${(currentUser.role === 'superadmin' || currentUser.role === 'admin') ? `
+              <button onclick="editProduct('${p.id}')" class="p-1.5 text-slate-500 hover:text-brand-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+              <button onclick="deleteProduct('${p.id}')" class="p-1.5 text-slate-500 hover:text-rose-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            ` : '<span class="text-xs text-slate-400">Solo Lectura</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      lucide.createIcons();
+    }
+
+    function openProductModal(prod = null) {
+      document.getElementById('formProduct').reset();
+      document.getElementById('prodId').value = '';
+      document.getElementById('modalProductTitle').textContent = prod ? 'Editar Producto' : 'Nuevo Producto Tecnológico';
+
+      if (prod) {
+        document.getElementById('prodId').value = prod.id;
+        document.getElementById('prodCode').value = prod.code;
+        document.getElementById('prodName').value = prod.name;
+        document.getElementById('prodCategory').value = prod.category;
+        document.getElementById('prodPrice').value = prod.price;
+        document.getElementById('prodStock').value = prod.stock;
+      }
+
+      openModal('modalProduct');
+    }
+
+    function saveProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('prodId').value;
+      const products = getData(DB_KEYS.PRODUCTS);
+
+      const newProd = {
+        id: id || Date.now().toString(),
+        code: document.getElementById('prodCode').value,
+        name: document.getElementById('prodName').value,
+        category: document.getElementById('prodCategory').value,
+        price: parseFloat(document.getElementById('prodPrice').value),
+        stock: parseInt(document.getElementById('prodStock').value)
+      };
+
+      if (id) {
+        const index = products.findIndex(p => p.id === id);
+        if (index !== -1) products[index] = newProd;
+      } else {
+        products.push(newProd);
+      }
+
+      setData(DB_KEYS.PRODUCTS, products);
+      closeModal('modalProduct');
+      renderProducts();
+      showToast('Producto guardado con éxito', 'success');
+    }
+
+    function editProduct(id) {
+      const products = getData(DB_KEYS.PRODUCTS);
+      const prod = products.find(p => p.id === id);
+      if (prod) openProductModal(prod);
+    }
+
+    function deleteProduct(id) {
+      if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+      let products = getData(DB_KEYS.PRODUCTS);
+      products = products.filter(p => p.id !== id);
+      setData(DB_KEYS.PRODUCTS, products);
+      renderProducts();
+      showToast('Producto eliminado', 'info');
+    }
+
+    // --- REGISTRO DE MOVIMIENTOS (KARDEX) ---
+    function renderMovements() {
+      const movements = getData(DB_KEYS.MOVEMENTS);
+      const products = getData(DB_KEYS.PRODUCTS);
+      const tbody = document.getElementById('movementsTableBody');
+      tbody.innerHTML = '';
+
+      movements.slice().reverse().forEach(m => {
+        const prod = products.find(p => p.id === m.productId) || { name: 'Producto Eliminado' };
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/30 transition';
+        tr.innerHTML = `
+          <td class="px-4 py-3 text-xs text-slate-500">${new Date(m.date).toLocaleString()}</td>
+          <td class="px-4 py-3">
+            <span class="px-2.5 py-1 text-xs rounded-lg font-bold ${m.type === 'IN' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'}">
+              ${m.type === 'IN' ? 'ENTRADA' : 'SALIDA'}
+            </span>
+          </td>
+          <td class="px-4 py-3 font-medium">${prod.name}</td>
+          <td class="px-4 py-3 font-bold">${m.qty} un.</td>
+          <td class="px-4 py-3 text-xs text-slate-500">${m.userName}</td>
+          <td class="px-4 py-3 text-xs text-slate-400">${m.notes || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openMovementModal() {
+      const products = getData(DB_KEYS.PRODUCTS);
+      const select = document.getElementById('movProduct');
+      select.innerHTML = products.map(p => `<option value="${p.id}">${p.name} (Stock: ${p.stock})</option>`).join('');
+
+      openModal('modalMovement');
+    }
+
+    function saveMovement(e) {
+      e.preventDefault();
+      const type = document.getElementById('movType').value;
+      const productId = document.getElementById('movProduct').value;
+      const qty = parseInt(document.getElementById('movQty').value);
+      const notes = document.getElementById('movNotes').value;
+
+      const products = getData(DB_KEYS.PRODUCTS);
+      const prodIndex = products.findIndex(p => p.id === productId);
+
+      if (prodIndex === -1) return;
+
+      // Validar stock en salida
+      if (type === 'OUT' && products[prodIndex].stock < qty) {
+        showToast('Stock insuficiente para registrar la salida', 'error');
+        return;
+      }
+
+      // Actualizar stock
+      if (type === 'IN') products[prodIndex].stock += qty;
+      if (type === 'OUT') products[prodIndex].stock -= qty;
+
+      setData(DB_KEYS.PRODUCTS, products);
+
+      // Guardar movimiento
+      const movements = getData(DB_KEYS.MOVEMENTS);
+      movements.push({
+        id: 'm_' + Date.now(),
+        date: new Date().toISOString(),
+        type,
+        productId,
+        qty,
+        userName: currentUser.name,
+        notes
+      });
+
+      setData(DB_KEYS.MOVEMENTS, movements);
+      closeModal('modalMovement');
+      renderMovements();
+      showToast('Movimiento registrado correctamente', 'success');
+    }
+
+    // --- GESTIÓN DE USUARIOS Y ROLES ---
+    function renderUsers() {
+      const users = getData(DB_KEYS.USERS);
+      const tbody = document.getElementById('usersTableBody');
+      tbody.innerHTML = '';
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/30 transition';
+        tr.innerHTML = `
+          <td class="px-4 py-3 font-medium">${u.name}</td>
+          <td class="px-4 py-3 text-slate-500">${u.email}</td>
+          <td class="px-4 py-3">
+            <span class="px-2.5 py-1 text-xs rounded-lg font-bold uppercase ${u.role === 'superadmin' ? 'bg-purple-100 text-purple-700' : u.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}">
+              ${u.role}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <span class="px-2.5 py-1 text-xs rounded-lg font-medium ${u.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+              ${u.status === 'active' ? 'Activo' : 'Suspendido'}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right">
+            ${currentUser.role === 'superadmin' ? `
+              <button onclick="editUser('${u.id}')" class="p-1.5 text-slate-500 hover:text-brand-600"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+            ` : '-'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      lucide.createIcons();
+    }
+
+    function openUserModal(user = null) {
+      document.getElementById('formUser').reset();
+      document.getElementById('userId').value = '';
+
+      if (user) {
+        document.getElementById('userId').value = user.id;
+        document.getElementById('userName').value = user.name;
+        document.getElementById('userEmail').value = user.email;
+        document.getElementById('userRole').value = user.role;
+        document.getElementById('userStatus').value = user.status;
+      }
+
+      openModal('modalUser');
+    }
+
+    function editUser(id) {
+      const users = getData(DB_KEYS.USERS);
+      const u = users.find(x => x.id === id);
+      if (u) openUserModal(u);
+    }
+
+    function saveUser(e) {
+      e.preventDefault();
+      const id = document.getElementById('userId').value;
+      const pass = document.getElementById('userPass').value;
+      const users = getData(DB_KEYS.USERS);
+
+      if (id) {
+        const index = users.findIndex(u => u.id === id);
+        if (index !== -1) {
+          users[index].name = document.getElementById('userName').value;
+          users[index].email = document.getElementById('userEmail').value;
+          users[index].role = document.getElementById('userRole').value;
+          users[index].status = document.getElementById('userStatus').value;
+          if (pass) users[index].pass = pass;
+        }
+      } else {
+        users.push({
+          id: Date.now().toString(),
+          name: document.getElementById('userName').value,
+          email: document.getElementById('userEmail').value,
+          pass: pass || '123456',
+          role: document.getElementById('userRole').value,
+          status: document.getElementById('userStatus').value
+        });
+      }
+
+      setData(DB_KEYS.USERS, users);
+      closeModal('modalUser');
+      renderUsers();
+      showToast('Usuario actualizado correctamente', 'success');
+    }
+
+    // --- EXPORTACIÓN E IMPORTACIÓN DE RESPALDO (JSON) ---
+    function exportBackupJSON() {
+      const backupData = {
+        users: getData(DB_KEYS.USERS),
+        products: getData(DB_KEYS.PRODUCTS),
+        movements: getData(DB_KEYS.MOVEMENTS),
+        settings: getData(DB_KEYS.SETTINGS),
+        exportDate: new Date().toISOString()
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `StockPulse_Backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      showToast('Copia de seguridad descargada', 'success');
+    }
+
+    function importBackupJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const imported = JSON.parse(evt.target.result);
+
+          if (imported.products && imported.users && imported.movements) {
+            setData(DB_KEYS.USERS, imported.users);
+            setData(DB_KEYS.PRODUCTS, imported.products);
+            setData(DB_KEYS.MOVEMENTS, imported.movements);
+            if (imported.settings) setData(DB_KEYS.SETTINGS, imported.settings);
+
+            showToast('¡Sistema restaurado correctamente desde el JSON!', 'success');
+            setTimeout(() => location.reload(), 1200);
+          } else {
+            showToast('Formato JSON no válido', 'error');
+          }
+        } catch (err) {
+          showToast('Error al leer el archivo JSON', 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSettingsUI() {
+      const settings = getData(DB_KEYS.SETTINGS);
+      if (document.getElementById('sysStoreName')) document.getElementById('sysStoreName').value = settings.storeName || '';
+      if (document.getElementById('sysCurrency')) document.getElementById('sysCurrency').value = settings.currency || '$';
+    }
+
+    function saveSystemSettings() {
+      const settings = {
+        storeName: document.getElementById('sysStoreName').value,
+        currency: document.getElementById('sysCurrency').value
+      };
+      setData(DB_KEYS.SETTINGS, settings);
+      showToast('Ajustes guardados', 'success');
+    }
+
+    // --- UTILIDADES UI: MODALES, TEMA OSCURO & TOASTS ---
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function toggleDarkMode() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      document.getElementById('themeIconSun').classList.toggle('hidden', !isDark);
+      document.getElementById('themeIconMoon').classList.toggle('hidden', isDark);
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
+      };
+
+      toast.className = `px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-auto transition duration-300 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${msg}</span>`;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
